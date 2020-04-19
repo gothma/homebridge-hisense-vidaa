@@ -21,39 +21,65 @@ class Accessory {
 
     this.client = new Remote(this.config.ip, this.log);
 
-    this.services.tv = new Service.Television(this.config.name, 'Television');
+    this.tv = new Service.Television(this.config.name, 'Television');
 
-    this.services.tv
+    this.tv
       .setCharacteristic(Characteristic.ConfiguredName,
         this.config.name);
 
-    this.services.tv
+    this.tv
+      .getCharacteristic(Characteristic.Active)
+      //.on('set', (x) => x)
+      //.on('get', this.remote.get_on.bind(this));
+
+    this.tv
       .setCharacteristic(Characteristic.SleepDiscoveryMode,
         Characteristic.SleepDiscoveryMode.ALWAYS_DISCOVERABLE
       );
 
-    this.services.tv
-      .getCharacteristic(Characteristic.Active)
+    this.tv.getCharacteristic(Characteristic.RemoteKey)
+      .on('set', this.setRemoteKey.bind(this));
 
 
-    this.services.speaker = new Service.TelevisionSpeaker();
+    this.speaker = new Service.TelevisionSpeaker();
 
-    this.services.speaker
+    this.speaker
       .setCharacteristic(Characteristic.Active, Characteristic.Active.ACTIVE);
 
-    this.services.speaker
+    this.speaker
       .setCharacteristic(Characteristic.VolumeControlType, Characteristic.VolumeControlType.ABSOLUTE);
 
-    this.services.speaker
+    this.speaker
       .setCharacteristic(Characteristic.Volume)
       .on('set', (x) => this.log.info(`Volume ${x}`))
       .on('get', (x) => 100);
   }
 
   getServices() {
-    return Object.keys(this.services).map((key) => this.services[key]);
+    return [this.tv, this.speaker];
   }
 }
+
+Accessory.prototype.setRemoteKey = function(key, cb) {
+  let bindings = {
+    [Characteristic.RemoteKey.REWIND]: 'KEY_BACKS',
+    [Characteristic.RemoteKey.FAST_FORWARD]: 'KEY_FORWARDS',
+    [Characteristic.RemoteKey.NEXT_TRACK]: 'KEY_MENU',
+    [Characteristic.RemoteKey.PREVIOUS_TRACK]: 'KEY_MENU',
+    [Characteristic.RemoteKey.ARROW_UP]: 'KEY_UP',
+    [Characteristic.RemoteKey.ARROW_DOWN]: 'KEY_DOWN',
+    [Characteristic.RemoteKey.ARROW_LEFT]: 'KEY_LEFT',
+    [Characteristic.RemoteKey.ARROW_RIGHT]: 'KEY_RIGHT',
+    [Characteristic.RemoteKey.SELECT]: 'KEY_OK',
+    [Characteristic.RemoteKey.BACK]: 'KEY_RETURNS',
+    [Characteristic.RemoteKey.EXIT]: 'KEY_EXIT',
+    [Characteristic.RemoteKey.PLAY_PAUSE]: 'KEY_PAUSE',
+    [Characteristic.RemoteKey.INFORMATION]: 'KEY_MENU',
+
+ };
+  const message = bindings[key];
+  this.client.send('remote_service', 'sendkey', message);
+};
 
 class Remote {
   constructor(ip, log) {
@@ -68,10 +94,23 @@ class Remote {
       'password': 'multimqttservice',
       'connectTimeout': 5000,
     };
-    process.env['DEBUG'] = 'mqttjs*'
 
     this.mqtt = mqtt.connect(options);
+    this.mqtt.subscribe('/#');
+    this.mqtt.on('message', this.receive.bind(this));
+    this.state = {};
+    this.state.on = false;
+  }
 
-    this.mqtt.publish('/remoteapp/tv/remote_service/XX:XX:XX:XX:XX:XY$normal/actions/sendkey', 'KEY_MENU');
+  get_on() {
+    return this.state.on;
+  }
+
+  receive(topic, message) {
+    this.state.on = true;
+  }
+
+  send(service, action, message) {
+    this.mqtt.publish(`/remoteapp/tv/${service}/XX:XX:XX:XX:XX:XY$normal/actions/${action}`, message);
   }
 }
