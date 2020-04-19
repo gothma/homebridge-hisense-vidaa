@@ -1,0 +1,27 @@
+{
+  "name": "homebridge-hisense-vidaa",
+  "version": "0.0.1",
+  "description": "HomeKit Support for Hisense TVs running Vidaa",
+  "license": "MIT",
+  "keywords": [
+    "homebridge-plugin",
+    "hisense",
+    "tv",
+    "vidaa"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:gothma/homebridge-hisense-vidaa.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gothma/homebridge-hisense-vidaa/issues"
+  },
+  "engines": {
+    "node": ">=12.0.0",
+    "homebridge": ">=0.4.0",
+    "mqtt": ">=3.0.0"
+  },
+  "dependencies": {
+    "mqtt": "^3.0.0"
+  }
+}
