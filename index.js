@@ -1,7 +1,7 @@
 'use strict';
 var Service, Characteristic;
 
-const mqtt = require('mqtt');
+const mqtt = require('async-mqtt');
 
 module.exports = function (homebridge) {
   Service = homebridge.hap.Service;
@@ -38,7 +38,7 @@ class Accessory {
       );
 
     this.tv.getCharacteristic(Characteristic.RemoteKey)
-      .on('set', this.setRemoteKey.bind(this));
+      .on('set', this.setRemoteKey);
 
 
     this.speaker = new Service.TelevisionSpeaker();
@@ -58,28 +58,28 @@ class Accessory {
   getServices() {
     return [this.tv, this.speaker];
   }
+
+  setRemoteKey = async key => {
+    let bindings = {
+      [Characteristic.RemoteKey.REWIND]: 'KEY_BACKS',
+      [Characteristic.RemoteKey.FAST_FORWARD]: 'KEY_FORWARDS',
+      [Characteristic.RemoteKey.NEXT_TRACK]: 'KEY_MENU',
+      [Characteristic.RemoteKey.PREVIOUS_TRACK]: 'KEY_MENU',
+      [Characteristic.RemoteKey.ARROW_UP]: 'KEY_UP',
+      [Characteristic.RemoteKey.ARROW_DOWN]: 'KEY_DOWN',
+      [Characteristic.RemoteKey.ARROW_LEFT]: 'KEY_LEFT',
+      [Characteristic.RemoteKey.ARROW_RIGHT]: 'KEY_RIGHT',
+      [Characteristic.RemoteKey.SELECT]: 'KEY_OK',
+      [Characteristic.RemoteKey.BACK]: 'KEY_RETURNS',
+      [Characteristic.RemoteKey.EXIT]: 'KEY_EXIT',
+      [Characteristic.RemoteKey.PLAY_PAUSE]: 'KEY_PAUSE',
+      [Characteristic.RemoteKey.INFORMATION]: 'KEY_MENU'
+    };
+    const message = bindings[key];
+    this.log.info(`Will send ${message}`);
+    return this.client.send('remote_service', 'sendkey', message);
+  };
 }
-
-Accessory.prototype.setRemoteKey = function(key, cb) {
-  let bindings = {
-    [Characteristic.RemoteKey.REWIND]: 'KEY_BACKS',
-    [Characteristic.RemoteKey.FAST_FORWARD]: 'KEY_FORWARDS',
-    [Characteristic.RemoteKey.NEXT_TRACK]: 'KEY_MENU',
-    [Characteristic.RemoteKey.PREVIOUS_TRACK]: 'KEY_MENU',
-    [Characteristic.RemoteKey.ARROW_UP]: 'KEY_UP',
-    [Characteristic.RemoteKey.ARROW_DOWN]: 'KEY_DOWN',
-    [Characteristic.RemoteKey.ARROW_LEFT]: 'KEY_LEFT',
-    [Characteristic.RemoteKey.ARROW_RIGHT]: 'KEY_RIGHT',
-    [Characteristic.RemoteKey.SELECT]: 'KEY_OK',
-    [Characteristic.RemoteKey.BACK]: 'KEY_RETURNS',
-    [Characteristic.RemoteKey.EXIT]: 'KEY_EXIT',
-    [Characteristic.RemoteKey.PLAY_PAUSE]: 'KEY_PAUSE',
-    [Characteristic.RemoteKey.INFORMATION]: 'KEY_MENU',
-
- };
-  const message = bindings[key];
-  this.client.send('remote_service', 'sendkey', message);
-};
 
 class Remote {
   constructor(ip, log) {
@@ -96,21 +96,9 @@ class Remote {
     };
 
     this.mqtt = mqtt.connect(options);
-    this.mqtt.subscribe('/#');
-    this.mqtt.on('message', this.receive.bind(this));
-    this.state = {};
-    this.state.on = false;
   }
 
-  get_on() {
-    return this.state.on;
-  }
-
-  receive(topic, message) {
-    this.state.on = true;
-  }
-
-  send(service, action, message) {
-    this.mqtt.publish(`/remoteapp/tv/${service}/XX:XX:XX:XX:XX:XY$normal/actions/${action}`, message);
+  async send(service, action, message) {
+    return this.mqtt.publish(`/remoteapp/tv/${service}/XX:XX:XX:XX:XX:XY$normal/actions/${action}`, message);
   }
 }
